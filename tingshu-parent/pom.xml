@@ -48,6 +48,7 @@
     <!--配置dependencyManagement锁定依赖的版本-->
     <dependencyManagement>
         <dependencies>
+            <!--spring-cloud-->
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -55,6 +56,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!--spring-cloud-alibaba-->
             <dependency>
                 <groupId>com.alibaba.cloud</groupId>
                 <artifactId>spring-cloud-alibaba-dependencies</artifactId>
@@ -116,11 +118,14 @@
                 <version>${xxl-job.version}</version>
             </dependency>
 
+            <!--微信支付SDK-->
             <dependency>
                 <groupId>com.github.wxpay</groupId>
                 <artifactId>wxpay-sdk</artifactId>
                 <version>${wxpay.version}</version>
             </dependency>
+
+            <!--redisson-->
             <dependency>
                 <groupId>org.redisson</groupId>
                 <artifactId>redisson-spring-boot-starter</artifactId>
@@ -136,12 +141,14 @@
 
             <!-- 下载：https://pinyin4j.sourceforge.net/ -->
             <!-- 安装：mvn install:install-file "-Dfile=D:\work\tingshu_work\tools\pinyin4j-2.5.0\lib\pinyin4j-2.5.0.jar" "-DgroupId=com.belerweb" "-DartifactId=pinyin4j" "-Dversion=2.5.0" "-Dpackaging=jar" -->
+            <!--汉字转拼音-->
             <dependency>
                 <groupId>com.belerweb</groupId>
                 <artifactId>pinyin4j</artifactId>
                 <version>${pinyin4j.version}</version>
             </dependency>
 
+            <!--kafka-->
             <dependency>
                 <groupId>org.springframework.kafka</groupId>
                 <artifactId>spring-kafka</artifactId>
@@ -158,6 +165,7 @@
                 <version>${kafka-streams.version}</version>
             </dependency>
 
+            <!--commons-io工具-->
             <dependency>
                 <groupId>commons-io</groupId>
                 <artifactId>commons-io</artifactId>
@@ -166,6 +174,7 @@
         </dependencies>
     </dependencyManagement>
 
+    <!--maven打包插件-->
     <build>
         <finalName>${project.artifactId}</finalName>
         <plugins>
