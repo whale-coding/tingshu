@@ -3,7 +3,29 @@
 
 
 <mapper namespace="com.atguigu.tingshu.album.mapper.BaseAttributeMapper">
+    <!--定义结果集处理-->
+    <!--封装一对多，将某个标签下包含标签值封装到一方集合属性中-->
+    <!--autoMapping="true"，可以让mybatis自己封装剩余的字段（字段名一致的）-->
+    <resultMap id="baseAttributeMap" type="com.atguigu.tingshu.model.album.BaseAttribute" autoMapping="true">
+        <!--封装主键及普通字段-->
+        <id property="id" column="id"></id>
+        <!--collection标签 封装集合属性attributeValueList ofType：多方对应类型-->
+        <collection property="attributeValueList" ofType="com.atguigu.tingshu.model.album.BaseAttributeValue" autoMapping="true">
+            <!--封装多方主键及普通字段-->
+            <id property="id" column="base_attribute_value_id"></id>
+        </collection>
+    </resultMap>
 
-
+    <!-- 根据一级分类Id获取分类属性（标签）列表 -->
+    <select id="selectAttribute" resultMap="baseAttributeMap">
+        select bai.id,bai.category1_id,bai.attribute_name,
+            bav.id base_attribute_value_id,
+            bav.attribute_id,
+            bav.value_name
+        from base_attribute bai
+        inner join base_attribute_value bav
+        on bai.id=bav.attribute_id
+        where bai.category1_id=#{category1Id} and bai.is_deleted=0
+    </select>
 </mapper>
 
