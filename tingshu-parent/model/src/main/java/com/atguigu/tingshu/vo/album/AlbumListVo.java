@@ -35,6 +35,6 @@ public class AlbumListVo {
 	private Integer buyStatNum;
 
 	@Schema(description = "评论数")
-	private Integer albumCommentStatNum;
+	private Integer commentStatNum;
 
 }

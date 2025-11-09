@@ -3,8 +3,35 @@
 
 
 <mapper namespace="com.atguigu.tingshu.album.mapper.AlbumInfoMapper">
-
-
+    <!--查看当前用户专辑分页列表-->
+    <select id="selectUserAlbumPage" resultType="com.atguigu.tingshu.vo.album.AlbumListVo">
+        select
+            ast.album_id,
+            ai.album_title,
+            ai.cover_url,
+            ai.include_track_count,
+            ai.is_finished,
+            ai.status,
+            max(if(ast.stat_type='0401',ast.stat_num,0)) playStatNum,
+            max(if(ast.stat_type='0402',ast.stat_num,0)) subscribeStatNum,
+            max(if(ast.stat_type='0403',ast.stat_num,0)) buyStatNum,
+            max(if(ast.stat_type='0404',ast.stat_num,0)) commentStatNum
+        from album_info ai
+        inner join album_stat ast
+        on ai.id = ast.album_id
+        <where>
+            ai.user_id = #{vo.userId}
+            <if test="vo.status!=null and vo.status!=''">
+                and ai.status = #{vo.status}
+            </if>
+            <if test="vo.albumTitle!=null and vo.albumTitle!=''">
+                and ai.album_title like concat('%',#{vo.albumTitle},'%')
+            </if>
+            and ai.is_deleted = 0
+        </where>
+        group by ai.id
+        order by ai.id desc
+    </select>
 
 </mapper>
 
