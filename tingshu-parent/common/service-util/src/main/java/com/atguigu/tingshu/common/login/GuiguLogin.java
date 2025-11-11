@@ -11,7 +11,7 @@ import java.lang.annotation.*;
 @Inherited
 @Documented
 public @interface GuiguLogin {
-    
+
     /**
      * 是否需要拦截
      * @return true or false

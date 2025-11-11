@@ -1,6 +1,7 @@
 package com.atguigu.tingshu.album.api;
 
 import com.atguigu.tingshu.album.service.AlbumInfoService;
+import com.atguigu.tingshu.common.login.GuiguLogin;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.common.util.AuthContextHolder;
 import com.atguigu.tingshu.model.album.AlbumInfo;
@@ -47,6 +48,7 @@ public class AlbumInfoApiController {
      * @param limit
      * @return
      */
+    @GuiguLogin(required = true)  // 登录拦截注解
     @PostMapping("/albumInfo/findUserAlbumPage/{page}/{limit}")
     public Result<Page<AlbumListVo>> findUserAlbumPage(@PathVariable Long page,
                                                        @PathVariable Long limit,
@@ -112,6 +114,7 @@ public class AlbumInfoApiController {
      * api/album/albumInfo/findUserAllAlbumList
      * @return
      */
+    @GuiguLogin(required = true)  // 登录拦截注解
     @GetMapping("/albumInfo/findUserAllAlbumList")
     public Result<List<AlbumInfo>> findUserAllAlbumList(){
         // 获取用户ID
