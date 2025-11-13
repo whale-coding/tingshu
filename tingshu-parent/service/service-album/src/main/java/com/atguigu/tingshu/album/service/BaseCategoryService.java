@@ -3,6 +3,7 @@ package com.atguigu.tingshu.album.service;
 import com.alibaba.fastjson.JSONObject;
 import com.atguigu.tingshu.model.album.BaseAttribute;
 import com.atguigu.tingshu.model.album.BaseCategory1;
+import com.atguigu.tingshu.model.album.BaseCategoryView;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.util.List;
@@ -21,4 +22,12 @@ public interface BaseCategoryService extends IService<BaseCategory1> {
      * @return 标签列表
      */
     List<BaseAttribute> findAttribute(Long category1Id);
+
+    /**
+     * api/album/category/getCategoryView/{category3Id}
+     * 根据三级分类Id 获取到分类信息
+     * @param category3Id 三级分类Id
+     * @return 分类信息
+     */
+    BaseCategoryView getCategoryView(Long category3Id);
 }

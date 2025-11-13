@@ -123,4 +123,15 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
     public List<BaseAttribute> findAttribute(Long category1Id) {
         return baseAttributeMapper.selectAttribute(category1Id);
     }
+
+    /**
+     * api/album/category/getCategoryView/{category3Id}
+     * 根据三级分类Id 获取到分类信息
+     * @param category3Id 三级分类Id
+     * @return 分类信息
+     */
+    @Override
+    public BaseCategoryView getCategoryView(Long category3Id) {
+        return baseCategoryViewMapper.selectById(category3Id);
+    }
 }

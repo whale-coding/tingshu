@@ -14,7 +14,7 @@ import java.util.List;
 
 @Data
 @Document(indexName = "albuminfo")
-@JsonIgnoreProperties(ignoreUnknown = true)//目的：防止json字符串转成实体对象时因未识别字段报错
+@JsonIgnoreProperties(ignoreUnknown = true) // 目的：防止json字符串转成实体对象时因未识别字段报错
 public class AlbumInfoIndex implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -24,10 +24,10 @@ public class AlbumInfoIndex implements Serializable {
     private Long id;
 
     //  es 中能分词的字段，这个字段数据类型必须是 text！keyword 不分词！ analyzer = "ik_max_word"
-    @Field(type = FieldType.Text, analyzer = "ik_max_word")
+    @Field(type = FieldType.Text, analyzer = "ik_max_word", searchAnalyzer = "ik_smart")
     private String albumTitle;
 
-    @Field(type = FieldType.Text, analyzer = "ik_max_word")
+    @Field(type = FieldType.Text, analyzer = "ik_max_word", searchAnalyzer = "ik_smart")
     private String albumIntro;
 
     @Field(type = FieldType.Keyword)
