@@ -4,9 +4,8 @@ import cn.hutool.core.collection.CollectionUtil;
 import com.alibaba.fastjson.JSONObject;
 import com.atguigu.tingshu.album.mapper.*;
 import com.atguigu.tingshu.album.service.BaseCategoryService;
-import com.atguigu.tingshu.model.album.BaseAttribute;
-import com.atguigu.tingshu.model.album.BaseCategory1;
-import com.atguigu.tingshu.model.album.BaseCategoryView;
+import com.atguigu.tingshu.model.album.*;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -133,5 +132,94 @@ public class BaseCategoryServiceImpl extends ServiceImpl<BaseCategory1Mapper, Ba
     @Override
     public BaseCategoryView getCategoryView(Long category3Id) {
         return baseCategoryViewMapper.selectById(category3Id);
+    }
+
+    /**
+     * 根据一级分类Id查询三级分类列表
+     * @param category1Id
+     * @return
+     */
+    @Override
+    public List<BaseCategory3> findTopBaseCategory3(Long category1Id) {
+        // 根据一级分类ID查询所属二级分类集合
+        List<BaseCategory2> baseCategory2List = baseCategory2Mapper.selectList(new QueryWrapper<BaseCategory2>().eq("category1_id", category1Id));
+
+        // 根据二级分类集合过滤出二级分类ID集合
+        List<Long> category2IdList = baseCategory2List.stream().map(baseCategory2 -> baseCategory2.getId()).collect(Collectors.toList());
+
+        // 构建查询条件对象
+        QueryWrapper<BaseCategory3> queryWrapper=new QueryWrapper<>();
+        // 添加二级分类集合ID
+        queryWrapper.in("category2_id",category2IdList);
+        // 筛选可以置顶的分类
+        queryWrapper.eq("is_top",1);
+        // 添加排序
+        queryWrapper.orderByAsc("order_num");
+        // 只获取前7个分类
+        queryWrapper.last(" limit 7 ");
+
+        // 查询三级分类数据
+        List<BaseCategory3> baseCategory3List = baseCategory3Mapper.selectList(queryWrapper);
+
+        // 返回结果
+        return baseCategory3List;
+    }
+
+    /**
+     * 根据一级分类id获取全部分类信息
+     * @param category1Id
+     * @return
+     */
+    @Override
+    public JSONObject getBaseCategoryList(Long category1Id) {
+        // 创建封装对象
+        JSONObject object=new JSONObject();
+        // 创建指定一级分类对应的视图数据
+        List<BaseCategoryView> baseCategoryViewList = baseCategoryViewMapper.selectList(new QueryWrapper<BaseCategoryView>().eq("category1_id", category1Id));
+        // 封装一级分类数据
+        if(CollectionUtil.isNotEmpty(baseCategoryViewList)){
+            // 设置一级分类id
+            Long category1Id1 = baseCategoryViewList.get(0).getCategory1Id();
+            object.put("categoryId",category1Id1);
+            // 设置一级分类name
+            String category1Name = baseCategoryViewList.get(0).getCategory1Name();
+            object.put("categoryName",category1Name);
+            // 创建二级分类封装集合
+            List<JSONObject> category2List=new ArrayList<>();
+            // 集合数据分组
+            Map<Long, List<BaseCategoryView>> cateogry2Map = baseCategoryViewList.stream().collect(Collectors.groupingBy(BaseCategoryView::getCategory2Id));
+            // 遍历集合
+            for (Map.Entry<Long, List<BaseCategoryView>> entry : cateogry2Map.entrySet()) {
+                // 创建封装对象
+                JSONObject object2=new JSONObject();
+                // 获取二级分类ID
+                Long category2Id = entry.getKey();
+                object2.put("categoryId",category2Id);
+                // 获取二分类name
+                List<BaseCategoryView> category3List = entry.getValue();
+                String category2Name = category3List.get(0).getCategory2Name();
+                object2.put("categoryName",category2Name);
+
+                // 获取三级分类集合
+                List<JSONObject> categoryList3 = category3List.stream().map(baseCategoryView -> {
+                    // 创建封装数据
+                    JSONObject object3 = new JSONObject();
+                    object3.put("categoryId", baseCategoryView.getCategory3Id());
+                    object3.put("categoryName", baseCategoryView.getCategory3Name());
+
+                    return object3;
+                }).collect(Collectors.toList());
+
+                // 设置三级分类集合
+                object2.put("categoryChild",categoryList3);
+
+                category2List.add(object2);
+            }
+
+            // 设置一级分类categoryChild
+            object.put("categoryChild",category2List);
+        }
+
+        return object;
     }
 }

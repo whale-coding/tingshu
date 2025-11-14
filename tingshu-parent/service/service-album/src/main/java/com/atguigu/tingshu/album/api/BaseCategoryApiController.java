@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.atguigu.tingshu.album.service.BaseCategoryService;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.album.BaseAttribute;
+import com.atguigu.tingshu.model.album.BaseCategory3;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,5 +66,32 @@ public class BaseCategoryApiController {
 
         return Result.ok(baseCategoryView);
     }
+
+    /**
+     * api/album/category/findTopBaseCategory3/{category1Id}
+     * 根据一级分类Id查询三级分类列表
+     * @param category1Id
+     * @return
+     */
+    @GetMapping("/category/findTopBaseCategory3/{category1Id}")
+    public Result<List<BaseCategory3>> findTopBaseCategory3(@PathVariable Long category1Id){
+        List<BaseCategory3> list=baseCategoryService.findTopBaseCategory3(category1Id);
+
+        return Result.ok(list);
+    }
+
+    /**
+     * 根据一级分类id获取全部分类信息
+     * api/album/category/getBaseCategoryList/{category1Id}
+     * @param category1Id
+     * @return
+     */
+    @GetMapping("/category/getBaseCategoryList/{category1Id}")
+    public Result<JSONObject> getBaseCategoryList(@PathVariable Long category1Id){
+        JSONObject jsonObject=	baseCategoryService.getBaseCategoryList(category1Id);
+
+        return Result.ok(jsonObject);
+    }
+
 }
 
