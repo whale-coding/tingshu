@@ -4,21 +4,33 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.extra.pinyin.PinyinUtil;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.Buckets;
+import co.elastic.clients.elasticsearch._types.aggregations.LongTermsBucket;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.CompletionSuggestOption;
 import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.elasticsearch.core.search.Suggestion;
+import co.elastic.clients.json.JsonData;
+import com.alibaba.fastjson.JSON;
 import com.alibaba.nacos.common.utils.StringUtils;
 import com.atguigu.tingshu.album.AlbumFeignClient;
 import com.atguigu.tingshu.model.album.AlbumAttributeValue;
 import com.atguigu.tingshu.model.album.AlbumInfo;
+import com.atguigu.tingshu.model.album.BaseCategory3;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
 import com.atguigu.tingshu.model.search.AlbumInfoIndex;
 import com.atguigu.tingshu.model.search.AttributeValueIndex;
+import com.atguigu.tingshu.model.search.SuggestIndex;
 import com.atguigu.tingshu.query.search.AlbumIndexQuery;
 import com.atguigu.tingshu.search.repository.AlbumInfoIndexRepository;
+import com.atguigu.tingshu.search.repository.SuggestIndexRepository;
 import com.atguigu.tingshu.search.service.SearchService;
 import com.atguigu.tingshu.user.client.UserFeignClient;
 import com.atguigu.tingshu.vo.search.AlbumInfoIndexVo;
@@ -28,12 +40,12 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.elasticsearch.core.suggest.Completion;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
@@ -45,6 +57,7 @@ import java.util.stream.Collectors;
 public class SearchServiceImpl implements SearchService {
     // 索引名称常量
     private static final String INDEX_NAME = "albuminfo";
+    private static final String SUGGEST_INDEX_NAME = "suggestinfo";
 
     @Autowired
     private AlbumInfoIndexRepository repository;
@@ -60,6 +73,9 @@ public class SearchServiceImpl implements SearchService {
 
     @Autowired
     private ElasticsearchClient elasticsearchClient;
+
+    @Autowired
+    private SuggestIndexRepository suggestIndexRepository;
 
     /**
      * 上架专辑-导入索引库（优化版）
@@ -158,6 +174,9 @@ public class SearchServiceImpl implements SearchService {
 
         // 保存
         repository.save(albumInfoIndex);
+
+        // 建立提词库
+        this.saveSuggestIndex(albumInfoIndex);
     }
 
     /*
@@ -264,6 +283,164 @@ public class SearchServiceImpl implements SearchService {
 
         // 返回结果
         return albumSearchResponseVo;
+    }
+
+    /**
+     * 查询指定一级分类下热门排行专辑
+     *
+     * @param category1Id
+     * @return
+     */
+    @Override
+    public List<Map<String, Object>> channel(Long category1Id) {
+        // 创建封装对象
+        List<Map<String, Object>> resultMap = null;
+        try {
+            // 根据一级分类查询对应的三级分类集合
+            List<BaseCategory3> baseCategory3List = albumFeignClient.findTopBaseCategory3(category1Id).getData();
+            // 方便根据指定的三级分类id获取三级分类对象，将list集合转换成map
+            Map<Long, BaseCategory3> baseCategory3Map = baseCategory3List.stream().collect(Collectors.toMap(BaseCategory3::getId, baseCategory3 -> baseCategory3));
+
+            // 验证
+            Assert.notNull(baseCategory3List, "一级分类{}未包含置顶三级分类", category1Id);
+            // 根据结果构建三级分类id集合
+            List<Long> category3IdList = baseCategory3List.stream().map(baseCategory3 -> baseCategory3.getId()).collect(Collectors.toList());
+
+            // 构建三级分类查询条件
+            List<FieldValue> fieldValueList = category3IdList.stream().map(category3Id -> {
+                FieldValue fieldValue = FieldValue.of(category3Id);
+                return fieldValue;
+            }).collect(Collectors.toList());
+
+            // 发送请求查询es
+            SearchResponse<AlbumInfoIndex> searchResponse = elasticsearchClient.search(s ->
+                            s.index(INDEX_NAME)
+                                    .query(q -> q.terms(t -> t.field("category3Id").terms(te -> te.value(fieldValueList))))
+                                    .size(0)
+                                    .aggregations("category3Agg", ag ->
+                                            ag.terms(t -> t.field("category3Id").size(10))
+                                                    .aggregations("top6Agg", agSub -> agSub.topHits(to -> to.sort(so -> so.field(fi -> fi.field("hotScore").order(SortOrder.Desc))).size(6)))),
+                    AlbumInfoIndex.class);
+
+            // 解析查询结果
+            Aggregate category3Agg = searchResponse.aggregations().get("category3Agg");
+            // 获取buckets数据
+            Buckets<LongTermsBucket> buckets = category3Agg.lterms().buckets();
+            // 获取集合数据
+            List<LongTermsBucket> termsBucketList = buckets.array();
+
+            // 判断
+            if (CollectionUtil.isNotEmpty(termsBucketList)) {
+                // 遍历集合处理各各分组
+                resultMap = termsBucketList.stream().map(bucket -> {
+                    // 创建集合对象，封装结果
+                    Map<String, Object> map = new HashMap<>();
+                    // 获取三级分类ID
+                    long category3Id = bucket.key();
+                    BaseCategory3 baseCategory3 = baseCategory3Map.get(category3Id);
+                    map.put("baseCategory3", baseCategory3);
+                    // 获取数据集合
+                    Aggregate top6Agg = bucket.aggregations().get("top6Agg");
+                    // 获取数据
+                    List<Hit<JsonData>> hitList = top6Agg.topHits().hits().hits();
+                    // 判断
+                    if (CollectionUtil.isNotEmpty(hitList)) {
+                        List<AlbumInfoIndex> albumInfoIndexList = hitList.stream().map(jsonDataHit -> {
+                            // 获取数据结果
+                            JsonData source = jsonDataHit.source();
+                            // 转换数据
+                            AlbumInfoIndex albumInfoIndex = JSON.parseObject(source.toString(), AlbumInfoIndex.class);
+                            return albumInfoIndex;
+                        }).collect(Collectors.toList());
+                        // 手机分组专辑数据
+                        map.put("list", albumInfoIndexList);
+                    }
+                    return map;
+                }).collect(Collectors.toList());
+            }
+        } catch (IOException e) {
+            log.error("查询热门专辑对接es异常：" + e.getMessage());
+            throw new RuntimeException(e);
+        }
+        return resultMap;
+    }
+
+    /**
+     * 关键字自动补全
+     *
+     * @param keyword
+     * @return
+     */
+    @Override
+    public List<String> completeSuggest(String keyword) {
+        try {
+            // 1.查询题词库
+            // 构建查询题词库DSL,获取查询结果
+            SearchResponse<SuggestIndex> searchResponse = elasticsearchClient.search(s ->s.index(SUGGEST_INDEX_NAME)
+                            .suggest(su -> su
+                                    .suggesters("mySuggestKeyword", fi -> fi.prefix(keyword).completion(c -> c.field("keyword").size(10).skipDuplicates(true)))
+                                    .suggesters("mySuggestPinyin", fi -> fi.prefix(keyword).completion(c -> c.field("keywordPinyin").size(10).skipDuplicates(true)))
+                                    .suggesters("mySuggestSequence", fi -> fi.prefix(keyword).completion(c -> c.field("keywordSequence").size(10).skipDuplicates(true))))
+                    , SuggestIndex.class);
+            // 封装结果--去重 set集合
+            Set<String> titleSet = new LinkedHashSet<>();
+            titleSet.addAll(this.parseSuggestResult("mySuggestKeyword", searchResponse));
+            titleSet.addAll(this.parseSuggestResult("mySuggestPinyin", searchResponse));
+            titleSet.addAll(this.parseSuggestResult("mySuggestPinyin", searchResponse));
+
+            log.info("titleSet的内容为：{}", titleSet);
+
+            // 结果不足10条
+            if(titleSet.size()>=10){
+                return new ArrayList<>(titleSet).subList(0,10);
+            }
+
+            // 2.查询专辑索引库
+            SearchResponse<AlbumInfoIndex> albumInfoIndexSearchResponse = elasticsearchClient.search(s -> s.index(INDEX_NAME).query(q -> q.match(m -> m.field("albumTitle").query(keyword))), AlbumInfoIndex.class);
+            // 解析结果
+            List<Hit<AlbumInfoIndex>> hitList = albumInfoIndexSearchResponse.hits().hits();
+            // 判断
+            if(CollectionUtil.isNotEmpty(hitList)){
+                // 遍历处理
+                for (Hit<AlbumInfoIndex> albumInfoIndexHit : hitList) {
+                    AlbumInfoIndex albumInfoIndex = albumInfoIndexHit.source();
+                    titleSet.add(albumInfoIndex.getAlbumTitle());
+                    // 判断
+                    if(titleSet.size()>=10){
+                        break;
+                    }
+                }
+            }
+            // 存储到结果集合中
+            return new ArrayList<>(titleSet);
+        } catch (IOException e) {
+            log.error("[搜索服务]建议词自动补全异常：{}", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 构建提词库
+     *
+     * @param albumInfoIndex
+     */
+    @Override
+    public void  saveSuggestIndex(AlbumInfoIndex albumInfoIndex) {
+        // 创建提词对象
+        SuggestIndex suggestIndex = new SuggestIndex();
+        // 设置提词对象id
+        suggestIndex.setId(albumInfoIndex.getId().toString());
+        // 设置提词对象title
+        suggestIndex.setTitle(albumInfoIndex.getAlbumTitle());
+        // 设置提词对象 汉字提词或者单词
+        suggestIndex.setKeyword(new Completion(new String[]{albumInfoIndex.getAlbumTitle()}));
+        // 设置提词对象 拼音提词
+        suggestIndex.setKeywordPinyin(new Completion(new String[]{PinyinUtil.getPinyin(albumInfoIndex.getAlbumTitle(), "")}));
+        // 设置提词对象 首字母缩写提词
+        suggestIndex.setKeywordSequence(new Completion(new String[]{PinyinUtil.getFirstLetter(albumInfoIndex.getAlbumTitle(), "")}));
+
+        // 添加到提词库
+        suggestIndexRepository.save(suggestIndex);
     }
 
     /**
@@ -432,5 +609,31 @@ public class SearchServiceImpl implements SearchService {
         }
 
         return albumSearchResponseVo;
+    }
+
+    /**
+     * 解析题词查询结果
+     *
+     * @param mySuggestKeyword
+     * @param searchResponse
+     * @return
+     */
+    private Collection<String> parseSuggestResult(String suggestKeyword, SearchResponse<SuggestIndex> searchResponse) {
+        // 获取题词组数据
+        List<Suggestion<SuggestIndex>> suggestions = searchResponse.suggest().get(suggestKeyword);
+        // 创建接收结果的集合
+        List<String> list=new ArrayList<>();
+        // 遍历
+        for (Suggestion<SuggestIndex> suggestion : suggestions) {
+            List<CompletionSuggestOption<SuggestIndex>> options = suggestion.completion().options();
+            // 判断
+            if(CollectionUtil.isNotEmpty(options)){
+                for (CompletionSuggestOption<SuggestIndex> option : options) {
+                    SuggestIndex suggestIndex = option.source();
+                    list.add(suggestIndex.getTitle());
+                }
+            }
+        }
+        return list;
     }
 }

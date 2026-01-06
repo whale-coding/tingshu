@@ -8,6 +8,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 @Tag(name = "搜索专辑管理")
 @RestController
 @RequestMapping("api/search")
@@ -54,6 +57,32 @@ public class SearchApiController {
         AlbumSearchResponseVo searchResponseVo=searchService.search(albumIndexQuery);
 
         return Result.ok(searchResponseVo);
+    }
+
+    /**
+     * api/search/albumInfo/channel/{category1Id}
+     * 查询指定一级分类下热门排行专辑
+     * @param category1Id
+     * @return
+     */
+    @GetMapping("/albumInfo/channel/{category1Id}")
+    public Result<List<Map<String,Object>>> channel(@PathVariable Long category1Id){
+        List<Map<String,Object>> mapList=searchService.channel(category1Id);
+
+        return Result.ok(mapList);
+    }
+
+    /**
+     * api/search/albumInfo/completeSuggest/{keyword}
+     * 关键字自动补全
+     * @param keyword
+     * @return
+     */
+    @GetMapping("/albumInfo/completeSuggest/{keyword}")
+    public Result<List<String>> completeSuggest(@PathVariable String keyword){
+        List<String> keywordList= searchService.completeSuggest(keyword);
+
+        return Result.ok(keywordList);
     }
 }
 

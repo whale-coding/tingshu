@@ -21,12 +21,12 @@ public class SuggestIndex {
     private String title;
 
     @CompletionField(analyzer = "standard", searchAnalyzer = "standard", maxInputLength = 20)
-    private Completion keyword;
+    private Completion keyword;  // 汉字
 
     @CompletionField(analyzer = "standard", searchAnalyzer = "standard", maxInputLength = 20)
-    private Completion keywordPinyin;
+    private Completion keywordPinyin;  // 拼音
 
     @CompletionField(analyzer = "standard", searchAnalyzer = "standard", maxInputLength = 20)
-    private Completion keywordSequence;
+    private Completion keywordSequence;  // 缩写
 
 }

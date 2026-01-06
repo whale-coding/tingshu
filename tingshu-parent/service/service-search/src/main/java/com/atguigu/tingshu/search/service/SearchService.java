@@ -1,7 +1,11 @@
 package com.atguigu.tingshu.search.service;
 
+import com.atguigu.tingshu.model.search.AlbumInfoIndex;
 import com.atguigu.tingshu.query.search.AlbumIndexQuery;
 import com.atguigu.tingshu.vo.search.AlbumSearchResponseVo;
+
+import java.util.List;
+import java.util.Map;
 
 public interface SearchService {
     /**
@@ -22,4 +26,24 @@ public interface SearchService {
      * @return
      */
     AlbumSearchResponseVo search(AlbumIndexQuery albumIndexQuery);
+
+    /**
+     * 查询指定一级分类下热门排行专辑
+     * @param category1Id
+     * @return
+     */
+    List<Map<String, Object>> channel(Long category1Id);
+
+    /**
+     * 关键字自动补全
+     * @param keyword
+     * @return
+     */
+    List<String> completeSuggest(String keyword);
+
+    /**
+     * 构建提词库
+     * @param albumInfoIndex
+     */
+    void saveSuggestIndex(AlbumInfoIndex albumInfoIndex);
 }
