@@ -36,7 +36,7 @@
         order by ti.id desc
     </select>
 
-        <!--更新声音排序-->
+    <!--更新声音排序-->
     <update id="updateOrderNum">
         update track_info
         set order_num=order_num - 1
@@ -44,6 +44,25 @@
           and album_id = #{albumId}
           and is_deleted = 0
     </update>
+
+    <!--查询专辑声音分页列表-->
+    <select id="selectAlbumTrackPage" resultType="com.atguigu.tingshu.vo.album.AlbumTrackListVo">
+        select
+            ts.track_id,
+            ti.track_title,
+            ti.media_duration,
+            ti.order_num,
+            max(if(ts.stat_type='0701',ts.stat_num,0)) playStatNum,
+            max(if(ts.stat_type='0704',ts.stat_num,0)) albumCommentStatNum,
+            ti.create_time
+
+        from track_info ti
+                 inner join track_stat ts
+                            on ti.id=ts.track_id
+        where ti.album_id=#{albumId} and ti.is_deleted=0 and ti.status=0501
+        group by ti.id
+        order by ti.order_num asc
+    </select>
 
 </mapper>
 

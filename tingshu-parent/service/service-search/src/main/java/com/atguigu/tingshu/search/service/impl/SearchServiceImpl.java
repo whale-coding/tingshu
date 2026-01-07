@@ -33,6 +33,7 @@ import com.atguigu.tingshu.search.repository.AlbumInfoIndexRepository;
 import com.atguigu.tingshu.search.repository.SuggestIndexRepository;
 import com.atguigu.tingshu.search.service.SearchService;
 import com.atguigu.tingshu.user.client.UserFeignClient;
+import com.atguigu.tingshu.vo.album.AlbumStatVo;
 import com.atguigu.tingshu.vo.search.AlbumInfoIndexVo;
 import com.atguigu.tingshu.vo.search.AlbumSearchResponseVo;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
@@ -47,6 +48,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
 
@@ -441,6 +443,61 @@ public class SearchServiceImpl implements SearchService {
 
         // 添加到提词库
         suggestIndexRepository.save(suggestIndex);
+    }
+
+    /**
+     * 查询专辑 详情
+     * @param albumId
+     * @return
+     */
+    @Override
+    public Map<String, Object> getItem(Long albumId) {
+        // 创建封装结果对象,多线程环境要使用线程安全的 Map
+        Map<String, Object> resultMap=new ConcurrentHashMap<>();
+        // 查询专辑信息
+        CompletableFuture<AlbumInfo> albumInfoCompletableFuture = CompletableFuture.supplyAsync(() -> {
+            AlbumInfo albumInfo = albumFeignClient.getAlbumInfo(albumId).getData();
+            Assert.notNull(albumInfo, "查询专辑ID:{},出现异常", albumInfo);
+
+            // 封装
+            resultMap.put("albumInfo", albumInfo);
+            return albumInfo;
+        }, executor);
+
+        // 查询三级分类信息
+        CompletableFuture<Void> categoryViewFuture = albumInfoCompletableFuture.thenAcceptAsync(albumInfo -> {
+            BaseCategoryView baseCategoryView = albumFeignClient.getCategoryView(albumInfo.getCategory3Id()).getData();
+            Assert.notNull(baseCategoryView, "查询分类三级分类ID:{},出现异常", albumInfo.getCategory3Id());
+
+            resultMap.put("baseCategoryView",baseCategoryView);
+        }, executor);
+
+        //查询专辑统计信息
+        CompletableFuture<Void> albumStatVoFuture = CompletableFuture.runAsync(() -> {
+            AlbumStatVo albumStatVo = albumFeignClient.getAlbumStatVo(albumId).getData();
+            // 判断
+            Assert.notNull(albumStatVo, "查询专辑统计信息ID:{},出现异常", albumId);
+            // 存储
+            resultMap.put("albumStatVo", albumStatVo);
+        }, executor);
+
+        // 查询用户信息
+        CompletableFuture<Void> announcerFuture = albumInfoCompletableFuture.thenAcceptAsync(albumInfo -> {
+            UserInfoVo userInfoVo = userFeignClient.getUserInfoVo(albumInfo.getUserId()).getData();
+            Assert.notNull(userInfoVo, "查询用户信息用户ID:{},出现异常", albumInfo.getUserId());
+
+            resultMap.put("announcer", userInfoVo);
+        }, executor);
+
+        // 编排异步对象关系
+        CompletableFuture.allOf(
+                albumInfoCompletableFuture,
+                categoryViewFuture,
+                albumStatVoFuture,
+                announcerFuture
+        ).join();
+
+        return resultMap;
     }
 
     /**

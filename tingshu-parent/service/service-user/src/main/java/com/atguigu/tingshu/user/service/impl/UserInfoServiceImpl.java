@@ -3,16 +3,22 @@ package com.atguigu.tingshu.user.service.impl;
 import cn.binarywang.wx.miniapp.api.WxMaService;
 import cn.binarywang.wx.miniapp.bean.WxMaJscode2SessionResult;
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.IdUtil;
 import com.atguigu.tingshu.common.constant.KafkaConstant;
 import com.atguigu.tingshu.common.constant.RedisConstant;
 import com.atguigu.tingshu.common.login.GuiguLogin;
 import com.atguigu.tingshu.common.service.KafkaService;
 import com.atguigu.tingshu.model.user.UserInfo;
+import com.atguigu.tingshu.model.user.UserPaidAlbum;
+import com.atguigu.tingshu.model.user.UserPaidTrack;
 import com.atguigu.tingshu.user.mapper.UserInfoMapper;
+import com.atguigu.tingshu.user.mapper.UserPaidAlbumMapper;
+import com.atguigu.tingshu.user.mapper.UserPaidTrackMapper;
 import com.atguigu.tingshu.user.service.UserInfoService;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import me.chanjar.weixin.common.error.WxErrorException;
@@ -21,8 +27,10 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -40,6 +48,13 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
 
     @Autowired
     private KafkaService kafkaService;
+
+    @Autowired
+    private UserPaidAlbumMapper userPaidAlbumMapper;
+
+    @Autowired
+    private UserPaidTrackMapper userPaidTrackMapper;
+
 
     /**
      * 小程序授权登录
@@ -129,5 +144,63 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         String loginKey = RedisConstant.USER_LOGIN_KEY_PREFIX+token;
 
         redisTemplate.opsForValue().set(loginKey,user,RedisConstant.USER_LOGIN_KEY_TIMEOUT, TimeUnit.SECONDS);
+    }
+
+    /**
+     *  获取用户声音列表付费情况
+     * @param userId
+     * @param albumId
+     * @param needChackTrackIdList
+     * @return
+     */
+    @Override
+    public Map<Long, Integer> userIsPaidTrack(Long userId, Long albumId, List<Long> needChackTrackIdList) {
+        // 创建Map封装结果
+        Map<Long, Integer> resultMap=new HashMap<>();
+        // 构建查询专辑购买条件
+        // select*from user_paid_album where userid=? and albumid=?
+        QueryWrapper<UserPaidAlbum> userPaidAlbumQueryWrapper=new QueryWrapper<>();
+        userPaidAlbumQueryWrapper.eq("user_id",userId);
+        userPaidAlbumQueryWrapper.eq("album_id",albumId);
+
+        // 根据专辑ID查询用户该买的专辑
+        Long count = userPaidAlbumMapper.selectCount(userPaidAlbumQueryWrapper);
+
+        // 购买了专辑，直接所有声音ID列表都设置为1，表示都已购买
+        if(count.intValue()>0){
+            for (Long trackId : needChackTrackIdList) {
+                resultMap.put(trackId,1);
+            }
+            return resultMap;
+        }
+
+        // 构建查询结果
+        QueryWrapper<UserPaidTrack> trackQueryWrapper=new QueryWrapper<>();
+        trackQueryWrapper.eq("user_id",userId);
+        trackQueryWrapper.in("track_id",needChackTrackIdList);
+        // select*from user_paid_track where user_id=? and track_id in (1,2,3,4,5)
+        // 根据声音列表查询列表中包含的声音是否有购买
+        List<UserPaidTrack> userPaidTracks = userPaidTrackMapper.selectList(trackQueryWrapper);
+        // 没有查询到，当前用户对于专辑和声音没有购买情况 设置0
+        if(CollectionUtil.isEmpty(userPaidTracks)){
+            for (Long trackId : needChackTrackIdList) {
+                resultMap.put(trackId,0);
+            }
+            return resultMap;
+        }
+        // 获取查询到的已经购买的声音ID集合
+        List<Long> userPaidTrackIdList = userPaidTracks.stream().map(userPaidTrack -> userPaidTrack.getTrackId()).collect(Collectors.toList());
+        // 有查询到结果，判断哪些声音有购买记录设置为1，没有购买记录的设置为0
+        for (Long trackId : needChackTrackIdList) {
+            // 判断购买的id列表中是否包含待验证的id
+            if(userPaidTrackIdList.contains(trackId)){
+                // 包含--购买
+                resultMap.put(trackId,1);
+            }else{
+                resultMap.put(trackId,0);
+            }
+        }
+        // 返回结果
+        return resultMap;
     }
 }

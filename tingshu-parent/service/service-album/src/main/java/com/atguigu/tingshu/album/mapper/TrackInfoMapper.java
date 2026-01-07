@@ -2,6 +2,7 @@ package com.atguigu.tingshu.album.mapper;
 
 import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.query.album.TrackInfoQuery;
+import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
 import com.atguigu.tingshu.vo.album.TrackListVo;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -24,4 +25,12 @@ public interface TrackInfoMapper extends BaseMapper<TrackInfo> {
      * @param orderNum
      */
     void updateOrderNum(@Param("albumId") Long albumId, @Param("orderNum") Integer orderNum);
+
+    /**
+     * 查询专辑声音分页列表
+     * @param albumTrackListVoPage
+     * @param albumId
+     * @return
+     */
+    Page<AlbumTrackListVo> selectAlbumTrackPage(Page<AlbumTrackListVo> albumTrackListVoPage, @Param("albumId") Long albumId);
 }

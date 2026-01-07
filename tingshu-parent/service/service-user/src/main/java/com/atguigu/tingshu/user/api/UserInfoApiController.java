@@ -5,10 +5,10 @@ import com.atguigu.tingshu.user.service.UserInfoService;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 @Tag(name = "用户管理接口")
 @RestController
@@ -26,10 +26,26 @@ public class UserInfoApiController {
      */
     @GetMapping("/userInfo/getUserInfoVo/{userId}")
     public Result<UserInfoVo> getUserInfoVo(@PathVariable Long userId){
-
         UserInfoVo userInfoVo=userInfoService.getUserInfo(userId);
 
         return Result.ok(userInfoVo);
+    }
+
+    /**
+     * 获取用户声音列表付费情况
+     * api/user/userInfo/userIsPaidTrack/{userId}/{albumId}
+     * @param userId
+     * @param albumId
+     * @param needChackTrackIdList
+     * @return
+     */
+    @PostMapping("/userInfo/userIsPaidTrack/{userId}/{albumId}")
+    public Result<Map<Long,Integer>> userIsPaidTrack(@PathVariable Long userId,
+                                                     @PathVariable Long albumId,
+                                                     @RequestBody List<Long> needChackTrackIdList){
+        Map<Long,Integer> resultMap=userInfoService.userIsPaidTrack(userId,albumId,needChackTrackIdList);
+
+        return Result.ok(resultMap);
     }
 }
 

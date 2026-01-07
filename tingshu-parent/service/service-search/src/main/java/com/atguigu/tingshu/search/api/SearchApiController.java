@@ -84,5 +84,18 @@ public class SearchApiController {
 
         return Result.ok(keywordList);
     }
+
+    /**
+     * 查询专辑 详情
+     * api/search/albumInfo/{albumId}
+     * @param albumId
+     * @return
+     */
+    @GetMapping("/albumInfo/{albumId}")
+    public Result<Map<String,Object>> getItem(@PathVariable Long albumId){
+        Map<String,Object> resultMap=searchService.getItem(albumId);
+
+        return Result.ok(resultMap);
+    }
 }
 

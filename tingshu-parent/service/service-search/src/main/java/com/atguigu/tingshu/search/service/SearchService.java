@@ -46,4 +46,11 @@ public interface SearchService {
      * @param albumInfoIndex
      */
     void saveSuggestIndex(AlbumInfoIndex albumInfoIndex);
+
+    /**
+     * 查询专辑 详情
+     * @param albumId
+     * @return
+     */
+    Map<String, Object> getItem(Long albumId);
 }
