@@ -4,6 +4,7 @@ import cn.hutool.core.bean.BeanUtil;
 import com.alibaba.nacos.common.utils.StringUtils;
 import com.atguigu.tingshu.album.AlbumFeignClient;
 import com.atguigu.tingshu.album.mapper.AlbumInfoMapper;
+import com.atguigu.tingshu.album.mapper.AlbumStatMapper;
 import com.atguigu.tingshu.album.mapper.TrackInfoMapper;
 import com.atguigu.tingshu.album.mapper.TrackStatMapper;
 import com.atguigu.tingshu.album.service.TrackInfoService;
@@ -14,10 +15,7 @@ import com.atguigu.tingshu.model.album.TrackInfo;
 import com.atguigu.tingshu.model.album.TrackStat;
 import com.atguigu.tingshu.query.album.TrackInfoQuery;
 import com.atguigu.tingshu.user.client.UserFeignClient;
-import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
-import com.atguigu.tingshu.vo.album.TrackInfoVo;
-import com.atguigu.tingshu.vo.album.TrackListVo;
-import com.atguigu.tingshu.vo.album.TrackMediaInfoVo;
+import com.atguigu.tingshu.vo.album.*;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -25,9 +23,12 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import cn.hutool.core.lang.Assert;
+
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 import java.math.BigDecimal;
@@ -58,6 +59,12 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
 
     @Autowired
     private UserFeignClient userFeignClient;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
+
+    @Autowired
+    private AlbumStatMapper albumStatMapper;
 
     /**
      * 保存声音
@@ -276,5 +283,46 @@ public class TrackInfoServiceImpl extends ServiceImpl<TrackInfoMapper, TrackInfo
             }
         }
         return albumTrackPage;
+    }
+
+    /**
+     *  声音统计处理
+     * @param trackStatMqVo
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void updateTrackStat(TrackStatMqVo trackStatMqVo) {
+        // 定义防重复key
+        String key="businessNo:"+trackStatMqVo.getBusinessNo();
+
+        // 防止消息重复消费
+        Boolean flag = redisTemplate.opsForValue().setIfAbsent(key, trackStatMqVo.getBusinessNo(), 1, TimeUnit.HOURS);
+        // 判断
+        if(!flag){
+            // 表示已经统计过该消息，停止执行。。
+            return;
+        }
+        // 更新声音统计
+        trackStatMapper.updateTrackStat(trackStatMqVo);
+        // 更新专辑统计
+        if(trackStatMqVo.getStatType().equals(SystemConstant.TRACK_STAT_PLAY)){
+            // 更新专辑统计
+            albumStatMapper.updateAlbumStat(trackStatMqVo.getAlbumId(),trackStatMqVo.getCount(),SystemConstant.ALBUM_STAT_PLAY);
+        }
+        if(trackStatMqVo.getStatType().equals(SystemConstant.TRACK_STAT_COMMENT)){
+            // 更新专辑统计
+            albumStatMapper.updateAlbumStat(trackStatMqVo.getAlbumId(),trackStatMqVo.getCount(),SystemConstant.ALBUM_STAT_COMMENT);
+        }
+
+    }
+
+    /**
+     * 获取声音统计信息
+     * @param trackId
+     * @return
+     */
+    @Override
+    public TrackStatVo getTrackStatVo(Long trackId) {
+        return trackInfoMapper.selectTrackStatVo(trackId);
     }
 }

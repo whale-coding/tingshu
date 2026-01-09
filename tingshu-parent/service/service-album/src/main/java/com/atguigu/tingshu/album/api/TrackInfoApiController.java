@@ -10,6 +10,7 @@ import com.atguigu.tingshu.query.album.TrackInfoQuery;
 import com.atguigu.tingshu.vo.album.AlbumTrackListVo;
 import com.atguigu.tingshu.vo.album.TrackInfoVo;
 import com.atguigu.tingshu.vo.album.TrackListVo;
+import com.atguigu.tingshu.vo.album.TrackStatVo;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -148,6 +149,18 @@ public class TrackInfoApiController {
         albumTrackListVoPage=trackInfoService.findAlbumTrackPage(albumTrackListVoPage,albumId,userId);
 
         return Result.ok(albumTrackListVoPage);
+    }
+
+    /**
+     *获取声音统计信息
+     * api/album/trackInfo/getTrackStatVo/{trackId}
+     * @param trackId
+     * @return
+     */
+    @GetMapping("/trackInfo/getTrackStatVo/{trackId}")
+    public Result<TrackStatVo> getTrackStatVo(@PathVariable Long trackId){
+        TrackStatVo trackStatVo=trackInfoService.getTrackStatVo(trackId);
+        return Result.ok(trackStatVo);
     }
 }
 
