@@ -53,4 +53,17 @@ public interface SearchService {
      * @return
      */
     Map<String, Object> getItem(Long albumId);
+
+    /**
+     * 更新排行榜
+     */
+    void updateLatelyAlbumRanking();
+
+    /**
+     * 获取排行榜
+     * @param category1Id
+     * @param dimension
+     * @return
+     */
+    List<AlbumInfoIndex> findRankingList(String category1Id, String dimension);
 }

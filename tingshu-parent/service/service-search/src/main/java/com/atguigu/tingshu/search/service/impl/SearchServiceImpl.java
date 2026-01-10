@@ -21,10 +21,8 @@ import co.elastic.clients.json.JsonData;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.nacos.common.utils.StringUtils;
 import com.atguigu.tingshu.album.AlbumFeignClient;
-import com.atguigu.tingshu.model.album.AlbumAttributeValue;
-import com.atguigu.tingshu.model.album.AlbumInfo;
-import com.atguigu.tingshu.model.album.BaseCategory3;
-import com.atguigu.tingshu.model.album.BaseCategoryView;
+import com.atguigu.tingshu.common.constant.RedisConstant;
+import com.atguigu.tingshu.model.album.*;
 import com.atguigu.tingshu.model.search.AlbumInfoIndex;
 import com.atguigu.tingshu.model.search.AttributeValueIndex;
 import com.atguigu.tingshu.model.search.SuggestIndex;
@@ -42,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.suggest.Completion;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -78,6 +77,9 @@ public class SearchServiceImpl implements SearchService {
 
     @Autowired
     private SuggestIndexRepository suggestIndexRepository;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     /**
      * 上架专辑-导入索引库（优化版）
@@ -498,6 +500,63 @@ public class SearchServiceImpl implements SearchService {
         ).join();
 
         return resultMap;
+    }
+
+    /**
+     * 更新排行榜
+     */
+    @Override
+    @SneakyThrows
+    public void updateLatelyAlbumRanking() {
+        // 获取所有一级分类
+        List<BaseCategory1> category1List = albumFeignClient.findAllCategory1().getData();
+        Assert.notNull(category1List,"查询所有一级分类为空,异常");
+        // 处理集合，拿到一级分类id集合
+        List<Long> baseCategory1IdList = category1List.stream().map(baseCategory1 -> baseCategory1.getId()).collect(Collectors.toList());
+        // 遍历集合
+        for (Long category1Id : baseCategory1IdList) {
+            // 设置查询的5个维度
+            String [] rankingDimensionArray=new String[]{"hotScore", "playStatNum", "subscribeStatNum", "buyStatNum", "commentStatNum"};
+            // 循环维度
+            for (String rankingDimension : rankingDimensionArray) {
+                // 构建dsl查询语句，发送请求获取结果
+                SearchResponse<AlbumInfoIndex> searchResponse = elasticsearchClient.search(s ->
+                                s.index(INDEX_NAME)
+                                        .query(q -> q.term(t -> t.field("category1Id").value(category1Id)))
+                                        .sort(so -> so.field(fi -> fi.field(rankingDimension).order(SortOrder.Desc)))
+                                        .size(20)
+                        , AlbumInfoIndex.class);
+                // 解析es查询结果
+                List<Hit<AlbumInfoIndex>> hits = searchResponse.hits().hits();
+                // 处理获取的集合数据
+                List<AlbumInfoIndex> albumInfoIndexList = hits.stream().map(hit -> hit.source()).collect(Collectors.toList());
+                // 定义存储key
+                String key = RedisConstant.RANKING_KEY_PREFIX+category1Id;
+                // 存储
+                redisTemplate.opsForHash().put(key,rankingDimension,albumInfoIndexList);
+            }
+        }
+    }
+
+    /**
+     * 获取排行榜
+     * @param category1Id
+     * @param dimension
+     * @return
+     */
+    @Override
+    public List<AlbumInfoIndex> findRankingList(String category1Id, String dimension) {
+        // 定义存储排行榜的key
+        String key=RedisConstant.RANKING_KEY_PREFIX+category1Id;
+        // 判断
+        Boolean flag = redisTemplate.opsForHash().hasKey(key, dimension);
+        // 判断
+        if(flag){
+            // 取出排行榜数据
+            List<AlbumInfoIndex> list= (List<AlbumInfoIndex>) redisTemplate.opsForHash().get(key,dimension);
+            return list;
+        }
+        return null;
     }
 
     /**

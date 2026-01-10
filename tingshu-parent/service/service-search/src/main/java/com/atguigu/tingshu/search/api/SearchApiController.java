@@ -1,6 +1,7 @@
 package com.atguigu.tingshu.search.api;
 
 import com.atguigu.tingshu.common.result.Result;
+import com.atguigu.tingshu.model.search.AlbumInfoIndex;
 import com.atguigu.tingshu.query.search.AlbumIndexQuery;
 import com.atguigu.tingshu.search.service.SearchService;
 import com.atguigu.tingshu.vo.search.AlbumSearchResponseVo;
@@ -96,6 +97,31 @@ public class SearchApiController {
         Map<String,Object> resultMap=searchService.getItem(albumId);
 
         return Result.ok(resultMap);
+    }
+
+    /**
+     * 更新排行榜
+     * api/search/albumInfo/updateLatelyAlbumRanking
+     * @return
+     */
+    @GetMapping("/albumInfo/updateLatelyAlbumRanking")
+    public Result updateLatelyAlbumRanking(){
+        searchService.updateLatelyAlbumRanking();
+        return Result.ok();
+    }
+
+    /**
+     * 获取排行榜
+     * api/search/albumInfo/findRankingList/{category1Id}/{dimension}
+     * @param category1Id
+     * @param dimension
+     * @return
+     */
+    @GetMapping("/albumInfo/findRankingList/{category1Id}/{dimension}")
+    public Result findRankingList(@PathVariable String category1Id,
+                                  @PathVariable String dimension){
+        List<AlbumInfoIndex> list  = searchService.findRankingList(category1Id,dimension);
+        return Result.ok(list);
     }
 }
 

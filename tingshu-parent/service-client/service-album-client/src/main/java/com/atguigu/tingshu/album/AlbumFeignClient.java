@@ -3,6 +3,7 @@ package com.atguigu.tingshu.album;
 import com.atguigu.tingshu.album.impl.AlbumDegradeFeignClient;
 import com.atguigu.tingshu.common.result.Result;
 import com.atguigu.tingshu.model.album.AlbumInfo;
+import com.atguigu.tingshu.model.album.BaseCategory1;
 import com.atguigu.tingshu.model.album.BaseCategory3;
 import com.atguigu.tingshu.model.album.BaseCategoryView;
 import com.atguigu.tingshu.vo.album.AlbumStatVo;
@@ -57,5 +58,13 @@ public interface AlbumFeignClient {
      */
     @GetMapping("/albumInfo/getAlbumStatVo/{albumId}")
     public Result<AlbumStatVo> getAlbumStatVo(@PathVariable Long albumId);
+
+    /**
+     * 查询所有的一级分类信息
+     * api/album/category/findAllCategory1
+     * @return
+     */
+    @GetMapping("/category/findAllCategory1")
+    public Result<List<BaseCategory1>> findAllCategory1();
 
 }
