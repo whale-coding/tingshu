@@ -22,6 +22,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.nacos.common.utils.StringUtils;
 import com.atguigu.tingshu.album.AlbumFeignClient;
 import com.atguigu.tingshu.common.constant.RedisConstant;
+import com.atguigu.tingshu.common.execption.GuiguException;
 import com.atguigu.tingshu.model.album.*;
 import com.atguigu.tingshu.model.search.AlbumInfoIndex;
 import com.atguigu.tingshu.model.search.AttributeValueIndex;
@@ -37,6 +38,8 @@ import com.atguigu.tingshu.vo.search.AlbumSearchResponseVo;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RBloomFilter;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.suggest.Completion;
@@ -80,6 +83,9 @@ public class SearchServiceImpl implements SearchService {
 
     @Autowired
     private RedisTemplate redisTemplate;
+
+    @Autowired
+    private RedissonClient redissonClient;
 
     /**
      * 上架专辑-导入索引库（优化版）
@@ -456,6 +462,14 @@ public class SearchServiceImpl implements SearchService {
     public Map<String, Object> getItem(Long albumId) {
         // 创建封装结果对象,多线程环境要使用线程安全的 Map
         Map<String, Object> resultMap=new ConcurrentHashMap<>();
+
+        // 布隆过滤器 判断专辑是否存在
+        RBloomFilter<Object> bloomFilter = redissonClient.getBloomFilter(RedisConstant.ALBUM_BLOOM_FILTER);
+        Boolean exists = bloomFilter.contains(albumId);
+        if(!exists){
+            throw new GuiguException(400,"您的操作非法，请查看使用说明");
+        }
+
         // 查询专辑信息
         CompletableFuture<AlbumInfo> albumInfoCompletableFuture = CompletableFuture.supplyAsync(() -> {
             AlbumInfo albumInfo = albumFeignClient.getAlbumInfo(albumId).getData();
