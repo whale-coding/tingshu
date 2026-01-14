@@ -1,6 +1,7 @@
 package com.atguigu.tingshu.user.client;
 
 import com.atguigu.tingshu.common.result.Result;
+import com.atguigu.tingshu.model.user.VipServiceConfig;
 import com.atguigu.tingshu.user.client.impl.UserDegradeFeignClient;
 import com.atguigu.tingshu.vo.user.UserInfoVo;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -41,5 +42,23 @@ public interface UserFeignClient {
     public Result<Map<Long,Integer>> userIsPaidTrack(@PathVariable Long userId,
                                                      @PathVariable Long albumId,
                                                      @RequestBody List<Long> needChackTrackIdList);
+
+    /**
+     *根据id获取VIP服务配置信息
+     * api/user/vipServiceConfig/getVipServiceConfig/{id}
+     * @param id
+     * @return
+     */
+    @GetMapping("/vipServiceConfig/getVipServiceConfig/{id}")
+    public Result<VipServiceConfig> getVipServiceConfig(@PathVariable Long id);
+
+    /**
+     * 判断用户是否购买过指定专辑
+     * api/user/userInfo/isPaidAlbum/{albumId}
+     * @param albumId
+     * @return
+     */
+    @GetMapping("/userInfo/isPaidAlbum/{albumId}")
+    public Result<Boolean> isPaidAlbum(@PathVariable Long albumId);
 
 }
